@@ -13,11 +13,14 @@ parser.add_argument('--buy', help='strength of signal to long', default=15, type
 parser.add_argument('--short', help='strength of signal to short', default=5, type=int)
 parser.add_argument('--sell_long', help='strength of signal to exit long position', default=8, type=int)
 parser.add_argument('--sell_short', help='strength of signal to exit short position', default=12, type=int)
+parser.add_argument('--wiki', help='wiki csv filename')
 args = parser.parse_args()
+print args
 
 performance = 0
+change=0
 signalmap = {}
-with open('nansignals.csv') as csvfile:
+with open('output1.csv') as csvfile:
     reader = csv.reader(csvfile, delimiter=',')
     for row in reader:
         identifier = tuple([row[0],row[1]])
@@ -33,18 +36,19 @@ open_position = 0
 active = False
 long_position = False
 short_position = False
-with open('WIKI_20161229.csv') as csvfile:
+with open(args.wiki) as csvfile:
     reader = csv.reader(csvfile, delimiter=',')
     for row in reader:
 #add logic if row[0] doesnt equal row of previous
         if row[0]!=previous_ticker:
+            print 'previous_ticker',previous_ticker,'performance',performance
             if active and long_position:
                 try:
 #                    print 'ticker', row[0], 'date', row[1]
                     change = ((float(previous_close.pop())/float(open_position))-1)*100
-                    print 'change', change
+                    #print 'change', change
                     performance += change
-                    print 'performance', performance
+                    #print 'performance', performance
                     active=False
                     long_position=False #position closed out
                 except ValueError:
@@ -52,18 +56,18 @@ with open('WIKI_20161229.csv') as csvfile:
                         last = previous_close.pop()
                         if last:
                            break                                     
-                    print last, open_position
+                    #print last, open_position
                     change = ((float(last)/float(open_position))-1)*100
-                    print 'change', change
+                    #print 'change', change
                     performance += change
-                    print 'performance', performance
+                    #print 'performance', performance
                     active=False
                     long_position=False #position closed out
             elif active and short_position:
                 change = ((float(open_position)/float(previous_close.pop()))-1)*100
-                print 'change', change
+                #print 'change', change
                 performance += change
-                print 'performance', performance
+                #print 'performance', performance
                 active=False
                 short_position=False
             else:
@@ -72,8 +76,9 @@ with open('WIKI_20161229.csv') as csvfile:
             pass
 
         current = tuple([row[0],row[1]])
+        previous_ticker = row[0]
         try:
-            signal = signalmap[current]
+            signal = int(signalmap[current])
             if not active:
                 if signal == -1:
                     previous_ticker = row[0]
@@ -97,32 +102,38 @@ with open('WIKI_20161229.csv') as csvfile:
                 else:
                     pass
             else: #active
+                #print 'long_position',long_position,'signal',signal,'args.sell_long',args.sell_long
                 if signal == -1:
                     previous_ticker = row[0]
                     continue
-                elif signal <= args.sell_long:
-                    change = ((float(open_position)/float(row[2]))-1)*100
-                    print 'change', change
-                    performance += change
-                    print 'performance', performance
-                    active = False
-                    long_position = False
-                elif signal >= args.sell_short:
+                elif long_position and signal <= args.sell_long:
+                    try:
+                        change = ((float(open_position)/float(row[2]))-1)*100
+                        #print 'selling long position'
+                        #print 'change', change
+                        performance += change
+                        #print 'performance', performance
+                        active = False
+                        long_position = False
+                    except:
+                        pass
+                elif short_position and signal >= args.sell_short:
+                    #print 'selling short position'
 #                    print 'row[2]', row[2], 'open_position', open_position
 #                    print 'symbol', row[0], 'date', row[1]
                     try:
                         change = ((float(row[2])/float(open_position))-1)*100
-                        print 'change', change
+                        #print 'change', change
                         performance += change
-                        print 'performance', performance
+                        #print 'performance', performance
                         active = False
                         short_position = False
                     except ZeroDivisionError: #it shorted a stock that went bankrupt
                         open_position = 0.01
                         change = ((float(row[2])/float(open_position))-1)*100
-                        print 'change', change
+                        #print 'change', change
                         performance += change
-                        print 'performance', performance
+                        #print 'performance', performance
                         active = False
                         short_position = False
                         
@@ -135,5 +146,6 @@ with open('WIKI_20161229.csv') as csvfile:
             continue
         previous_ticker = row[0]
         previous_close.append(row[5])       
+#        print 'current',current,'signal',signal,'active',active,'long_position',long_position,'short_position',short_position,'open_position',open_position,'change',change,'performance',performance
     #for each signalled date, retrieve signal buy at open or sell at close
  
